@@ -20,6 +20,17 @@ PLANS = {
 }
 
 bot = telebot.TeleBot(TOKEN)
+def notify_admin(message):
+    """Отправляет уведомление админу"""
+    try:
+        bot.send_message(
+            ADMIN_ID,
+            message,
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        print(f"Notify error: {e}")
+
 app = Flask(__name__)
 
 @app.route(f'/webhook/{TOKEN}', methods=['POST'])
@@ -96,6 +107,13 @@ def send_invoice_premium(chat_id, plan_key):
 
 @bot.message_handler(commands=['start'])
 def start(message):
+    # Уведомляем админа о новом пользователе
+    user_info = f"*New user!*\n"
+    user_info += f"ID: {message.from_user.id}\n"
+    user_info += f"Name: {message.from_user.first_name or 'Unknown'}\n"
+    user_info += f"Username: @{message.from_user.username or 'none'}"
+    notify_admin(user_info)
+    
     args = message.text.split()
     if len(args) > 1 and args[1] == "premium":
         show_premium_plans(message.chat.id)
@@ -186,6 +204,7 @@ def simulate_1month(message):
     if str(message.from_user.id) != ADMIN_ID:
         bot.send_message(message.chat.id, "Access denied")
         return
+    notify_admin(f"*Simulation command*\nFrom: {message.from_user.id}\nCommand: {message.text}")
     args = message.text.split()
     user_id = args[1] if len(args) > 1 else str(message.from_user.id)
     access_token = activate_premium_on_server(user_id, 30)
@@ -206,6 +225,7 @@ def simulate_3months(message):
     if str(message.from_user.id) != ADMIN_ID:
         bot.send_message(message.chat.id, "Access denied")
         return
+    notify_admin(f"*Simulation command*\nFrom: {message.from_user.id}\nCommand: {message.text}")
     args = message.text.split()
     user_id = args[1] if len(args) > 1 else str(message.from_user.id)
     access_token = activate_premium_on_server(user_id, 90)
@@ -226,6 +246,7 @@ def simulate_1year(message):
     if str(message.from_user.id) != ADMIN_ID:
         bot.send_message(message.chat.id, "Access denied")
         return
+    notify_admin(f"*Simulation command*\nFrom: {message.from_user.id}\nCommand: {message.text}")
     args = message.text.split()
     user_id = args[1] if len(args) > 1 else str(message.from_user.id)
     access_token = activate_premium_on_server(user_id, 365)
