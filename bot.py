@@ -3,11 +3,13 @@ import telebot
 from telebot import types
 from flask import Flask, request, jsonify
 import time
+import requests
 
 TOKEN = "8757264129:AAFX4VI8n4MQ9k7mBl9YmsbOF0Nq3eDbqgw"
 SITE_URL = "https://glafira-ai.ru/nsfw/promo.html"
 RENDER_URL = "https://velvet-bot-lewg.onrender.com"
 ADMIN_ID = "8172285744"
+API_URL = "http://glafira-ai.ru:8001"  # Ваш API для активации Premium
 
 PLANS = {
     "1month": {"label": "Premium — 1 month", "price": 100, "days": 30},
@@ -17,7 +19,22 @@ PLANS = {
 
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
-premium_users = {}
+
+def activate_premium_on_server(user_id, days):
+    """Отправляет запрос на ваш сервер для активации Premium"""
+    try:
+        response = requests.post(
+            f"{API_URL}/activate-premium",
+            json={
+                "user_id": f"tg_{user_id}",
+                "days": days
+            },
+            timeout=10
+        )
+        return response.status_code == 200
+    except Exception as e:
+        print(f"Error activating premium: {e}")
+        return False
 
 @app.route(f'/webhook/{TOKEN}', methods=['POST'])
 def webhook():
@@ -30,17 +47,15 @@ def webhook():
 
 def show_premium_plans(chat_id):
     keyboard = types.InlineKeyboardMarkup(row_width=1)
-    
-    btn1 = types.InlineKeyboardButton("💎 1 month — 100⭐", callback_data="buy_1month")
-    btn2 = types.InlineKeyboardButton("🔥 3 months — 250⭐", callback_data="buy_3months")
-    btn3 = types.InlineKeyboardButton("👑 1 year — 800⭐", callback_data="buy_1year")
-    
-    keyboard.add(btn1, btn2, btn3)
+    keyboard.add(
+        types.InlineKeyboardButton("💎 1 month — 100⭐", callback_data="buy_1month"),
+        types.InlineKeyboardButton("🔥 3 months — 250⭐", callback_data="buy_3months"),
+        types.InlineKeyboardButton("👑 1 year — 800⭐", callback_data="buy_1year")
+    )
     
     bot.send_message(
         chat_id,
         f"💎 *Premium Plans*\n\n"
-        f"Choose a plan:\n\n"
         f"⭐ *1 month:* 100 Stars\n"
         f"⭐ *3 months:* 250 Stars (save 17%)\n"
         f"⭐ *1 year:* 800 Stars (save 33%)\n\n"
@@ -69,8 +84,7 @@ def send_invoice_premium(chat_id, plan_key):
         )
         return True
     except Exception as e:
-        print(f"ERROR sending invoice: {e}")
-        bot.send_message(chat_id, f"❌ Error: {str(e)}")
+        print(f"ERROR: {e}")
         return False
 
 @bot.message_handler(commands=['start'])
@@ -88,15 +102,8 @@ def start(message):
     bot.send_message(
         message.chat.id,
         f"🎭 *Welcome to Velvet!*\n\n"
-        f"Chat with AI companions who understand your deepest desires.\n\n"
-        f"🔥 *Free:*\n"
-        f"• 8 characters\n"
-        f"• 30 messages/day\n"
-        f"• Flirt and erotic\n\n"
-        f"💎 *Premium:*\n"
-        f"• Custom characters\n"
-        f"• Unlimited messages\n"
-        f"• Full access\n\n"
+        f"🔥 *Free:* 8 characters, 30 msg/day\n"
+        f"💎 *Premium:* Custom characters, unlimited\n\n"
         f"👉 {SITE_URL}",
         parse_mode="Markdown",
         reply_markup=keyboard
@@ -104,8 +111,6 @@ def start(message):
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
-    print(f"Callback: {call.data}")
-    
     if call.data == "show_plans":
         show_premium_plans(call.message.chat.id)
         bot.answer_callback_query(call.id)
@@ -113,13 +118,8 @@ def callback_handler(call):
     elif call.data.startswith("buy_"):
         plan_key = call.data.replace("buy_", "")
         if plan_key in PLANS:
-            success = send_invoice_premium(call.message.chat.id, plan_key)
-            if success:
-                bot.answer_callback_query(call.id, "✅ Invoice sent!")
-            else:
-                bot.answer_callback_query(call.id, "❌ Error sending invoice")
-        else:
-            bot.answer_callback_query(call.id, "❌ Unknown plan")
+            send_invoice_premium(call.message.chat.id, plan_key)
+        bot.answer_callback_query(call.id)
 
 @bot.pre_checkout_query_handler(func=lambda query: True)
 def pre_checkout(pre_checkout_query):
@@ -140,18 +140,30 @@ def successful_payment(message):
             break
     
     days = PLANS[plan_key]["days"]
-    expiry = int(time.time()) + days * 86400
-    premium_users[user_id] = expiry
     
-    bot.send_message(
-        user_id,
-        f"✅ *Payment received!*\n\n"
-        f"💎 *Premium activated for {days} days!*\n\n"
-        f"🎉 Thank you!\n"
-        f"🔥 Enjoy full access!\n\n"
-        f"👉 Chat: {SITE_URL}",
-        parse_mode="Markdown"
-    )
+    # Активируем Premium на вашем сервере
+    activated = activate_premium_on_server(user_id, days)
+    
+    if activated:
+        bot.send_message(
+            user_id,
+            f"✅ *Payment received!*\n\n"
+            f"💎 *Premium activated for {days} days!*\n\n"
+            f"🎉 Thank you!\n"
+            f"👉 Chat: {SITE_URL}\n\n"
+            f"Your Premium ID: tg_{user_id}\n"
+            f"Use this ID on the website to access Premium.",
+            parse_mode="Markdown"
+        )
+    else:
+        bot.send_message(
+            user_id,
+            f"✅ *Payment received!*\n\n"
+            f"⏳ Activation in progress...\n"
+            f"We'll activate your Premium shortly.\n\n"
+            f"Your ID: tg_{user_id}",
+            parse_mode="Markdown"
+        )
     
     try:
         bot.send_message(
@@ -159,7 +171,8 @@ def successful_payment(message):
             f"💰 *New payment!*\n"
             f"User: {user_id}\n"
             f"Plan: {PLANS[plan_key]['label']}\n"
-            f"Amount: {message.successful_payment.total_amount} Stars"
+            f"Amount: {message.successful_payment.total_amount} Stars\n"
+            f"Activated: {'Yes' if activated else 'Manual needed'}"
         )
     except:
         pass
@@ -171,12 +184,17 @@ def premium_cmd(message):
 @bot.message_handler(commands=['status'])
 def status_cmd(message):
     user_id = message.chat.id
-    if user_id in premium_users:
-        expiry = premium_users[user_id]
-        remaining = (expiry - int(time.time())) / 86400
-        bot.send_message(user_id, f"✅ Premium active!\nRemaining: {int(remaining)} days")
-    else:
-        bot.send_message(user_id, "⛔ No Premium.\n/premium to buy")
+    # Проверяем на сервере
+    try:
+        response = requests.get(f"{API_URL}/tokens-balance/tg_{user_id}", timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('premium') or data.get('ultimate'):
+                bot.send_message(user_id, "✅ Premium active!")
+                return
+    except:
+        pass
+    bot.send_message(user_id, "⛔ No Premium.\n/premium to buy")
 
 @bot.message_handler(commands=['help'])
 def help_cmd(message):
@@ -185,8 +203,7 @@ def help_cmd(message):
 @bot.message_handler(commands=['admin'])
 def admin_cmd(message):
     if str(message.from_user.id) == ADMIN_ID:
-        active = len([u for u, exp in premium_users.items() if exp > time.time()])
-        bot.send_message(message.chat.id, f"✅ Admin:\nActive Premium: {active}")
+        bot.send_message(message.chat.id, "✅ Admin access")
     else:
         bot.send_message(message.chat.id, "❌ Access denied")
 
