@@ -1,11 +1,11 @@
 import os
 import telebot
 from telebot import types
-import logging
 from flask import Flask, request, jsonify
 
 TOKEN = "8777890530:AAGpBEQAxhmYfSshDlk670cWEpWOrY8x1rY"
 SITE_URL = "https://glafira-ai.ru/nsfw/v6.html"
+RENDER_URL = "https://velvet-bot-lewg.onrender.com"
 
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
@@ -37,7 +37,10 @@ def premium(message):
 def index():
     return "Velvet AI Bot is running"
 
+# Настройка webhook при запуске
+bot.remove_webhook()
+bot.set_webhook(url=f"{RENDER_URL}/webhook/{TOKEN}")
+print(f"✅ Webhook set to: {RENDER_URL}/webhook/{TOKEN}")
+
 if __name__ == '__main__':
-    bot.remove_webhook()
-    bot.set_webhook(url=f"https://velvet-bot.onrender.com/webhook/{TOKEN}")
     app.run(host='0.0.0.0', port=int(os.getenv('PORT', 10000)))
