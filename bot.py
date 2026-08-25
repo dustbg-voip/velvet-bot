@@ -17,6 +17,20 @@ PLANS = {
     "1year": {"label": "Premium — 1 year", "price": 800, "days": 365},
 }
 
+
+def activate_premium_on_server(user_id, days):
+    """Отправляет запрос на сервер для активации Premium"""
+    try:
+        response = requests.post(
+            "https://glafira-ai.ru/living-api/activate-premium",
+            json={"user_id": f"tg_{user_id}", "days": days},
+            timeout=10
+        )
+        return response.status_code == 200
+    except Exception as e:
+        print(f"Error: {e}")
+        return False
+
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
 
