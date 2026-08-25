@@ -3,7 +3,7 @@ import telebot
 from telebot import types
 from flask import Flask, request, jsonify
 
-TOKEN = "8777890530:AAGpBEQAxhmYfSshDlk670cWEpWOrY8x1rY"
+TOKEN = "8757264129:AAFX4VI8n4MQ9k7mBl9YmsbOF0Nq3eDbqgw"
 SITE_URL = "https://glafira-ai.ru/nsfw/v6.html"
 RENDER_URL = "https://velvet-bot-lewg.onrender.com"
 
