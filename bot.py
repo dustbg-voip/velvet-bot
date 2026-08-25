@@ -339,12 +339,12 @@ def admin_cmd(message):
     else:
         bot.send_message(message.chat.id, "Access denied")
 
-@app.route('/')
-def index():
-    return "Velvet Bot is running"
+@app.route(f'/webhook/{TOKEN}', methods=['POST'])
+def webhook():
+    if request.headers.get('content-type') == 'application/json':
+        json_string = request.get_data().decode('utf-8')
+        update = telebot.types.Update.de_json(json_string)
+        bot.process_new_updates([update])
+        return jsonify({'ok': True})
+    return jsonify({'ok': False}), 403
 
-bot.remove_webhook()
-bot.set_webhook(url=f"{RENDER_URL}/webhook/{TOKEN}")
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.getenv('PORT', 10000)))
