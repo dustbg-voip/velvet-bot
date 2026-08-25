@@ -61,7 +61,7 @@ def send_invoice_premium(chat_id, plan_key):
             chat_id=chat_id,
             title="💎 Velvet Premium",
             description=f"Access for {plan['days']} days",
-            payload=f"premium_{plan_key}_{chat_id}_{int(time.time())}",
+            invoice_payload=f"premium_{plan_key}_{chat_id}_{int(time.time())}",
             provider_token="",
             currency="XTR",
             prices=prices,
