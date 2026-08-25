@@ -191,6 +191,31 @@ def successful_payment(message):
     except:
         pass
 
+
+@bot.message_handler(commands=['test_premium'])
+def test_premium(message):
+    """Тестовая команда для проверки активации Premium"""
+    if str(message.from_user.id) == ADMIN_ID:
+        # Симулируем успешную оплату
+        user_id = message.from_user.id
+        days = 30
+        
+        activated = activate_premium_on_server(user_id, days)
+        
+        if activated:
+            bot.send_message(
+                user_id,
+                f"✅ *TEST: Premium activated!*\n"
+                f"Days: {days}\n"
+                f"ID: tg_{user_id}",
+                parse_mode="Markdown"
+            )
+        else:
+            bot.send_message(user_id, "❌ Test failed")
+    else:
+        bot.send_message(message.chat.id, "❌ Access denied")
+
+
 @bot.message_handler(commands=['premium'])
 def premium_cmd(message):
     show_premium_plans(message.chat.id)
