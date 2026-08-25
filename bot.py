@@ -22,21 +22,34 @@ app = Flask(__name__)
 premium_users = {}
 
 def activate_premium_on_server(user_id, days):
-    """Отправляет запрос на сервер для активации Premium"""
+    """Активирует Premium и генерирует access token"""
     try:
+        # Активируем Premium
         response = requests.post(
             f"{API_URL}/activate-premium",
             json={"user_id": f"tg_{user_id}", "days": days},
             timeout=10
         )
-        return response.status_code == 200
+        
+        if response.status_code != 200:
+            return None
+        
+        # Генерируем access token
+        token_response = requests.post(
+            f"{API_URL}/generate-token",
+            json={"user_id": f"tg_{user_id}", "days": days},
+            timeout=10
+        )
+        
+        if token_response.status_code == 200:
+            token_data = token_response.json()
+            return token_data.get("access_token")
+        
+        return None
     except Exception as e:
         print(f"Error: {e}")
-        return False
-
-@app.route(f'/webhook/{TOKEN}', methods=['POST'])
-def webhook():
-    if request.headers.get('content-type') == 'application/json':
+        return None
+'content-type') == 'application/json':
         json_string = request.get_data().decode('utf-8')
         update = telebot.types.Update.de_json(json_string)
         bot.process_new_updates([update])
@@ -144,21 +157,43 @@ def successful_payment(message):
             break
     
     days = PLANS[plan_key]["days"]
-    activated = activate_premium_on_server(user_id, days)
     
-    if activated:
+    # Активируем Premium и получаем токен
+    access_token = activate_premium_on_server(user_id, days)
+    
+    if access_token:
         bot.send_message(
             user_id,
-            f"*Payment received!*\n\n"
-            f"Premium activated for {days} days!\n\n"
-            f"Your Premium ID: tg_{user_id}\n"
-            f"Visit: {SITE_URL}",
+            f"*Payment received!*
+
+"
+            f"Premium activated for {days} days!
+
+"
+            f"*Your credentials:*
+"
+            f"Premium ID: `tg_{user_id}`
+"
+            f"Access Token: `{access_token}`
+
+"
+            f"*Login:*
+"
+            f"1. Visit: {SITE_URL.replace('promo.html', 'auth.html')}
+"
+            f"2. Enter Premium ID and Token
+"
+            f"3. Enjoy full access!
+
+"
+            f"*Keep your token safe!*",
             parse_mode="Markdown"
         )
     else:
         bot.send_message(
             user_id,
-            f"Payment received! Activation in progress...\n"
+            f"Payment received! Activation in progress...
+"
             f"Your ID: tg_{user_id}",
             parse_mode="Markdown"
         )
@@ -166,10 +201,15 @@ def successful_payment(message):
     try:
         bot.send_message(
             ADMIN_ID,
-            f"*New payment!*\n"
-            f"User: {user_id}\n"
-            f"Plan: {PLANS[plan_key]['label']}\n"
-            f"Amount: {message.successful_payment.total_amount} Stars"
+            f"*New payment!*
+"
+            f"User: {user_id}
+"
+            f"Plan: {PLANS[plan_key]['label']}
+"
+            f"Amount: {message.successful_payment.total_amount} Stars
+"
+            f"Token: {'Issued' if access_token else 'Failed'}"
         )
     except:
         pass
