@@ -10,9 +10,9 @@ RENDER_URL = "https://velvet-bot-lewg.onrender.com"
 ADMIN_ID = "8172285744"
 
 PLANS = {
-    "1month": {"label": "Premium — 1 месяц", "price": 100, "days": 30},
-    "3months": {"label": "Premium — 3 месяца", "price": 250, "days": 90},
-    "1year": {"label": "Premium — 1 год", "price": 800, "days": 365},
+    "1month": {"label": "Premium — 1 month", "price": 100, "days": 30},
+    "3months": {"label": "Premium — 3 months", "price": 250, "days": 90},
+    "1year": {"label": "Premium — 1 year", "price": 800, "days": 365},
 }
 
 bot = telebot.TeleBot(TOKEN)
@@ -30,28 +30,29 @@ def webhook():
 
 def show_premium_plans(chat_id):
     keyboard = types.InlineKeyboardMarkup(row_width=1)
-    keyboard.add(
-        types.InlineKeyboardButton("💎 1 месяц — 100⭐", callback_data="buy_1month"),
-        types.InlineKeyboardButton("🔥 3 месяца — 250⭐", callback_data="buy_3months"),
-        types.InlineKeyboardButton("👑 1 год — 800⭐", callback_data="buy_1year")
-    )
+    
+    btn1 = types.InlineKeyboardButton("💎 1 month — 100⭐", callback_data="buy_1month")
+    btn2 = types.InlineKeyboardButton("🔥 3 months — 250⭐", callback_data="buy_3months")
+    btn3 = types.InlineKeyboardButton("👑 1 year — 800⭐", callback_data="buy_1year")
+    
+    keyboard.add(btn1, btn2, btn3)
     
     bot.send_message(
         chat_id,
-        f"💎 *Premium Тарифы*\n\n"
-        f"Выберите план:\n\n"
-        f"⭐ *1 месяц:* 100 Stars\n"
-        f"⭐ *3 месяца:* 250 Stars (скидка 17%)\n"
-        f"⭐ *1 год:* 800 Stars (скидка 33%)\n\n"
-        f"Все тарифы включают:\n"
-        f"✅ Свои персонажи\n"
-        f"✅ Безлимит\n"
-        f"✅ Полный доступ",
+        f"💎 *Premium Plans*\n\n"
+        f"Choose a plan:\n\n"
+        f"⭐ *1 month:* 100 Stars\n"
+        f"⭐ *3 months:* 250 Stars (save 17%)\n"
+        f"⭐ *1 year:* 800 Stars (save 33%)\n\n"
+        f"All plans include:\n"
+        f"✅ Custom characters\n"
+        f"✅ Unlimited messages\n"
+        f"✅ Full access",
         parse_mode="Markdown",
         reply_markup=keyboard
     )
 
-def send_invoice_premium(chat_id, plan_key="1month"):
+def send_invoice_premium(chat_id, plan_key):
     plan = PLANS[plan_key]
     prices = [types.LabeledPrice(label=plan["label"], amount=plan["price"])]
     
@@ -59,7 +60,7 @@ def send_invoice_premium(chat_id, plan_key="1month"):
         bot.send_invoice(
             chat_id=chat_id,
             title="💎 Velvet Premium",
-            description=f"Доступ к Premium на {plan['days']} дней",
+            description=f"Access for {plan['days']} days",
             payload=f"premium_{plan_key}_{chat_id}_{int(time.time())}",
             provider_token="",
             currency="XTR",
@@ -68,20 +69,18 @@ def send_invoice_premium(chat_id, plan_key="1month"):
         )
         return True
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"ERROR sending invoice: {e}")
+        bot.send_message(chat_id, f"❌ Error: {str(e)}")
         return False
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    # Проверяем параметры
     args = message.text.split()
     
-    # Если пользователь пришел за Premium
     if len(args) > 1 and args[1] == "premium":
         show_premium_plans(message.chat.id)
         return
     
-    # Обычное приветствие
     keyboard = types.InlineKeyboardMarkup(row_width=1)
     keyboard.add(types.InlineKeyboardButton("🔥 Open Website", url=SITE_URL))
     keyboard.add(types.InlineKeyboardButton("💎 Get Premium", callback_data="show_plans"))
@@ -103,17 +102,24 @@ def start(message):
         reply_markup=keyboard
     )
 
-@bot.callback_query_handler(func=lambda call: call.data == "show_plans")
-def show_plans_callback(call):
-    show_premium_plans(call.message.chat.id)
-    bot.answer_callback_query(call.id)
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith("buy_"))
-def buy_callback(call):
-    plan_key = call.data.replace("buy_", "")
-    if plan_key in PLANS:
-        send_invoice_premium(call.message.chat.id, plan_key)
-    bot.answer_callback_query(call.id)
+@bot.callback_query_handler(func=lambda call: True)
+def callback_handler(call):
+    print(f"Callback: {call.data}")
+    
+    if call.data == "show_plans":
+        show_premium_plans(call.message.chat.id)
+        bot.answer_callback_query(call.id)
+    
+    elif call.data.startswith("buy_"):
+        plan_key = call.data.replace("buy_", "")
+        if plan_key in PLANS:
+            success = send_invoice_premium(call.message.chat.id, plan_key)
+            if success:
+                bot.answer_callback_query(call.id, "✅ Invoice sent!")
+            else:
+                bot.answer_callback_query(call.id, "❌ Error sending invoice")
+        else:
+            bot.answer_callback_query(call.id, "❌ Unknown plan")
 
 @bot.pre_checkout_query_handler(func=lambda query: True)
 def pre_checkout(pre_checkout_query):
