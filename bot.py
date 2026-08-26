@@ -38,11 +38,17 @@ def notify_admin(message):
     except:
         pass
 
-def add_crowns_to_user(user_id, crowns):
+def add_crowns_to_user(user_id, crowns, pack_key="", pack_label="", stars_amount=0):
     try:
         response = requests.post(
             f"{API_URL}/add-crowns",
-            json={"user_id": f"tg_{user_id}", "amount": crowns},
+            json={
+                "user_id": f"tg_{user_id}", 
+                "amount": crowns,
+                "pack_key": pack_key,
+                "pack_label": pack_label,
+                "stars_amount": stars_amount
+            },
             timeout=10
         )
         return response.status_code == 200
@@ -138,9 +144,10 @@ def successful_payment(message):
     
     pack = CROWN_PACKS[pack_key]
     crowns = pack["crowns"]
+    stars_amount = pack["stars"]
     
-    # Начисляем короны
-    success = add_crowns_to_user(user_id, crowns)
+    # Начисляем короны с записью покупки
+    success = add_crowns_to_user(user_id, crowns, pack_key, pack["label"], stars_amount)
     
     if success:
         bot.send_message(
