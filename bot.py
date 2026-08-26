@@ -38,6 +38,24 @@ def notify_admin(message):
     except:
         pass
 
+def generate_access_token(user_id, days=365):
+    """Генерирует access token для входа на сайт"""
+    try:
+        import secrets
+        token = secrets.token_hex(16)  # 32 символа
+        response = requests.post(
+            f"{API_URL}/generate-token",
+            json={"user_id": f"tg_{user_id}", "days": days},
+            timeout=10
+        )
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('ok'):
+                return data.get('access_token', token)
+        return token
+    except:
+        return None
+
 def add_crowns_to_user(user_id, crowns, pack_key="", pack_label="", stars_amount=0):
     try:
         response = requests.post(
@@ -150,12 +168,17 @@ def successful_payment(message):
     success = add_crowns_to_user(user_id, crowns, pack_key, pack["label"], stars_amount)
     
     if success:
+        # Генерируем access token для входа на сайт
+        access_token = generate_access_token(user_id)
+        
         bot.send_message(
             user_id,
             f"✅ *Payment received!*\n\n"
             f"👑 {crowns} Crowns added!\n\n"
-            f"Your Crowns ID: tg_{user_id}\n"
-            f"Login: {AUTH_URL}",
+            f"🔑 *Your login credentials:*\n"
+            f"User ID: `tg_{user_id}`\n"
+            f"Access Token: `{access_token}`\n\n"
+            f"🌐 Login here: {AUTH_URL}",
             parse_mode="Markdown"
         )
     else:
